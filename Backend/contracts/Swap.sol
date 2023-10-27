@@ -1,28 +1,30 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "hardhat/console.sol";
 
 contract CustomToken is ERC20 {
+    
     constructor(string memory name, string memory symbol, uint256 initialSupply) ERC20(name, symbol) {
-        _mint(msg.sender, initialSupply);
+        
+        _mint(msg.sender, initialSupply * (10 ** uint256(decimals())));
     }
 }
 
 contract Swap {
-    uint256 private ethToTokenConversionRate = 1000000000000000000; // (1 ETH) in wei  
     address private owner;
-
     struct TokenInfo {
         address tokenAddress;
         string name;
         string symbol;
         uint256 totalSupply;
+        uint256 tokenPrice;
     }
 
     TokenInfo[] public createdTokens;
     mapping(string => uint256) tokenIndicesByName;
+    mapping(address => mapping(address => uint256)) userTokenBalances;
 
     event TokenSwapped(
         address indexed sender,
@@ -41,9 +43,13 @@ contract Swap {
         owner = msg.sender;
     }
 
-    function createCustomToken(string memory name, string memory symbol, uint256 initialSupply) public onlyOwner {
+    function createCustomToken(string memory name, string memory symbol, uint256 initialSupply,uint256 tokenPriceInWei) public onlyOwner {
         CustomToken newToken = new CustomToken(name, symbol, initialSupply);
-        TokenInfo memory tokenInfo = TokenInfo(address(newToken), name, symbol, initialSupply);
+        TokenInfo memory tokenInfo = TokenInfo(address(newToken), name, symbol, initialSupply,tokenPriceInWei);
+
+         // Transfer the tokens to the owner
+        CustomToken(address(newToken)).transfer(msg.sender, initialSupply * (10 ** 18));
+
         createdTokens.push(tokenInfo);
         tokenIndicesByName[name] = createdTokens.length - 1;
 
@@ -54,7 +60,7 @@ contract Swap {
     }
 
 
-    function getTokenDetailsByName(string memory tokenName) public view returns (address tokenAddress, string memory name, string memory symbol, uint256 totalSupply) {
+    function getTokenDetailsByName(string memory tokenName) public view returns (address tokenAddress, string memory name, string memory symbol, uint256 totalSupply,uint256 tokenPrice) {
          uint256 index = tokenIndicesByName[tokenName];
          console.log("token index======",index);
          require(index < createdTokens.length, "Token not found");
@@ -65,8 +71,24 @@ contract Swap {
             tokenInfo.tokenAddress,
             tokenInfo.name,
             tokenInfo.symbol,
-            tokenInfo.totalSupply
+            tokenInfo.totalSupply,
+            tokenInfo.tokenPrice
         );
+    }
+
+    function getCreatedTokenDetails() public view returns (TokenInfo[] memory) {
+        TokenInfo[] memory tokenDetails = new TokenInfo[](createdTokens.length);
+        for (uint256 i = 0; i < createdTokens.length; i++) {
+            TokenInfo memory tokenInfo = createdTokens[i];
+            tokenDetails[i] = TokenInfo(
+                tokenInfo.tokenAddress,
+                tokenInfo.name,
+                tokenInfo.symbol,
+                tokenInfo.totalSupply,
+                tokenInfo.tokenPrice
+            );
+        }
+        return tokenDetails;
     }
 
 
@@ -77,19 +99,25 @@ contract Swap {
 
         TokenInfo storage tokenInfo = createdTokens[index];
         require(msg.value > 0, "Must send Ether to perform the swap");
-        // require(ethAmount > 0, "Eth amount must be greater than 0");
-
+       
         address tokenAddress = tokenInfo.tokenAddress;
         CustomToken token = CustomToken(tokenAddress);
 
-        console.log("ethToTokenConversionRate=====",ethToTokenConversionRate);
+        uint256 tokenprice = tokenInfo.tokenPrice;
+
+        console.log("tokenPrice=====",tokenprice);
         console.log("Ether Amount----------",msg.value);
-        uint256 tokenAmount = (msg.value / ethToTokenConversionRate);
+
+        uint256 tokenAmount = (msg.value / tokenprice);
 
         console.log("Token Amount----------",tokenAmount);
 
         require(token.balanceOf(address(this)) >= tokenAmount, "Swap contract has insufficient token balance");
         require(token.transfer(msg.sender, tokenAmount), "Token transfer failed");
+
+        userTokenBalances[msg.sender][tokenAddress] += tokenAmount;
+        
+        console.log("user token Balance-----",userTokenBalances[msg.sender][tokenAddress]);
 
         emit TokenSwapped(msg.sender, tokenAddress, msg.value, tokenAmount, block.timestamp);
     }
@@ -108,21 +136,22 @@ contract Swap {
         address tokenAddress = tokenInfo.tokenAddress;
         CustomToken token = CustomToken(tokenAddress);
 
-        // uint256 exactAmount = tokenamout / 10 ** 18;  // converting value into wei.
-        uint256 ethAmount = tokenamout * ethToTokenConversionRate;
-
         console.log("Token Amount-------",tokenamout);
 
-        // uint256 ethAmount = tokenamout * ethToTokenConversionRate ;
+        uint256 tokenprice = tokenInfo.tokenPrice;
+
+        uint256 ethAmount = tokenamout * tokenprice;
 
         console.log("ether amount=====",ethAmount);
-        console.log("token Balanceeeee--------",address(this).balance);
-
-
+       
         require(address(this).balance  >= ethAmount , "Swap contract has incufficient ether balance");
         require(token.transfer(msg.sender , tokenamout), "Token transfer failed");
+
+        userTokenBalances[msg.sender][tokenAddress] -= tokenamout;
         
         payable(msg.sender).transfer(ethAmount);
+
+        console.log("user token Balance-----",userTokenBalances[msg.sender][tokenAddress]);
         emit TokenSwapped(msg.sender, tokenAddress, tokenamout, ethAmount, block.timestamp);
 
     }
@@ -138,8 +167,8 @@ contract Swap {
         require(index < createdTokens.length, "Token index out of range");
         require(keccak256(abi.encodePacked(createdTokens[index].name)) == keccak256(abi.encodePacked(tokenName)), "Token not found");
         TokenInfo memory tokenInfo = createdTokens[index];
-        CustomToken token = CustomToken(tokenInfo.tokenAddress);
-        return token.balanceOf(user_address);
+       return userTokenBalances[user_address][tokenInfo.tokenAddress];
     }
+
 
 }

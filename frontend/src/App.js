@@ -1,11 +1,26 @@
-
-import './App.css';
+// import "./App.css";
+import Header from "./components/Header";
+import { Routes, Route } from "react-router-dom";
+import Swap from "./components/Swap";
+import Token from "./components/Token";
 
 function App() {
   return (
-    <div className="App">
-      <h1>Swap</h1>
-    </div>
+    <>
+      <Header />
+
+      <Routes>
+        <Route
+          path="/"
+          element={<Swap/>}
+        />
+        <Route
+          path="/token"
+          element={<Token/>}
+        />
+       
+      </Routes>
+    </>
   );
 }
 
