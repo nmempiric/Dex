@@ -4,15 +4,14 @@ import { Routes, Route } from "react-router-dom";
 import Swap from "./components/Swap";
 import Token from "./components/Token";
 
-function App() {
+function App(props) {
   return (
     <>
       <Header />
-
       <Routes>
         <Route
           path="/"
-          element={<Swap/>}
+          element={<Swap Account={props.Account} Balance={props.Balance}/>}
         />
         <Route
           path="/token"

@@ -9,19 +9,18 @@ import { useAccount } from "wagmi";
 import { toast } from "react-toastify";
 import Modal from "./Model";
 import axios from "axios";
-import {ethers} from "ethers";
+import { ethers } from "ethers";
 import Swap from "../ABI/Swap.json";
-// const { ethers } = require("ethers");
 
+export default function Home(props) {
+  const Account = props.Account;
+  const Balance = props.Balance;
+  console.log("connected Account=====",Account);
+  // console.log("Account Balance---------------",Balance);
 
+  const { REACT_APP_SWAP_CONTRACT_ADDRESS } = process.env;
 
-// import TokenBalance from "../components/TokenBalance";
-
-export default function Home() {
-  
-  const {REACT_APP_SWAP_CONTRACT_ADDRESS} = process.env;
-
-  const SwapAbi = Swap.abi; 
+  const SwapAbi = Swap.abi;
   const provider = new ethers.providers.Web3Provider(window.ethereum);
   const contractSwap = new ethers.Contract(
     REACT_APP_SWAP_CONTRACT_ADDRESS,
@@ -43,7 +42,8 @@ export default function Home() {
   const [isSwapping, setIsSwapping] = useState(false);
   const [selectedTokenAddress, setSelectedTokenAddress] = useState("");
   const [selectedSrcTokenAddress, setSelectedSrcTokenAddress] = useState("");
-
+  const [srctokenBalance, setSrcTokenBalance] = useState(0);
+  
   const handleModal = () => {
     setModal(true);
   };
@@ -51,20 +51,52 @@ export default function Home() {
     setModal1(true);
   };
 
+// fetch the srcToken  User Balance
+  useEffect(() => {
+    if(srcToken !== "Eth"){
+
+    let apiEndpoint;
+    if (srcToken === "TokenA") {
+      apiEndpoint = "http://localhost:3000/checkBalancetokenA";
+    } else if (srcToken === "TokenB") {
+      apiEndpoint = "http://localhost:3000/checkBalancetokenB";
+    } else if (srcToken === "TokenC") {
+      apiEndpoint = "http://localhost:3000/checkBalancetokenC";
+    } else {
+      console.error("Invalid token selected");
+      return;
+    }
+
+    
+    // Axios request to fetch the selected token's balance
+    axios
+      .post(apiEndpoint, { Address: Account })
+      .then((response) => {
+        if (response.status === 200) {
+          const balance = response.data.balanceOf;
+          const tokenBalanceInEther = ethers.utils.formatEther(balance);
+          // console.log(`Selected Token (${srcToken}) Balance:`, tokenBalanceInEther);
+          setSrcTokenBalance(tokenBalanceInEther)
+        } else {
+          console.error("Failed to fetch token balance:", response.status);
+        }
+      })
+      .catch((error) => {
+        console.error("Error fetching token balance:", error);
+      });
+    }
+    else {
+      console.error("Failed to fetch token balance");
+    }
+  }, [srcToken,Account]); 
+
   //  ether to wei
   function etherToWei(ether) {
     return ethers.utils.parseEther(ether.toString());
   }
 
-  //  ether to wei
-  //   function WeiToEther(Wei) {
-  //       return ethers.utils.formatEther(Wei);
-  //   }
-
-  
   // Handling the text of the submit button
   useEffect(() => {
-   
     if (!address) setSwapBtnText("CONNECT WALLET");
     else if (!inputValue) setSwapBtnText("ENTER AMOUNT");
     else setSwapBtnText("SWAP");
@@ -72,23 +104,25 @@ export default function Home() {
 
   // Function to perform Ether to Token swap
   const swapEtherToToken = async () => {
-    try{
+    try {
       var inputvalueinwei = etherToWei(inputValue);
-      console.log("input value--",inputvalueinwei);
-      console.log("selected token---",selectedTokenAddress);
+      // console.log("input value--",inputvalueinwei);
+      // console.log("selected token---",selectedTokenAddress);
       const signer = provider.getSigner();
       const contractWithSigner = contractSwap.connect(signer);
       const owner = "0x7049577ABAea053257Bf235bFDCa57036Aed6AdD";
 
-      const tx = await contractWithSigner.swapEtherForToken(selectedTokenAddress , owner ,{ value: inputvalueinwei });
+      const tx = await contractWithSigner.swapEtherForToken(
+        selectedTokenAddress,
+        owner,
+        { value: inputvalueinwei }
+      );
       await tx.wait();
 
       toast.success("SwapEthToToken successfully");
       setInputValue("");
       setOutputValue("");
-
-    }
-    catch(e){
+    } catch (e) {
       toast.error(e);
       console.error(e);
     }
@@ -96,25 +130,28 @@ export default function Home() {
 
   // Function to perform Token to Token swap
   const swapTokenforToken = async () => {
-    try{
+    try {
       var inputvalueinwei = etherToWei(inputValue).toString();
-      console.log("input value--",inputvalueinwei);
-      console.log("Src Token----",selectedSrcTokenAddress);
-      console.log("destination token---",selectedTokenAddress);
-     
+      // console.log("input value--",inputvalueinwei);
+      // console.log("Src Token----",selectedSrcTokenAddress);
+      // console.log("destination token---",selectedTokenAddress);
+
       const signer = provider.getSigner();
       const contractWithSigner = contractSwap.connect(signer);
       const toOwner = "0xf8b02EE855D5136ed1D782fC0a53a0CDdA65c946";
 
-      const tx = await contractWithSigner.swapTokenToToken(selectedSrcTokenAddress,selectedTokenAddress , inputvalueinwei , toOwner );
+      const tx = await contractWithSigner.swapTokenToToken(
+        selectedSrcTokenAddress,
+        selectedTokenAddress,
+        inputvalueinwei,
+        toOwner
+      );
       await tx.wait();
 
       toast.success("Swap Token successfully");
       setInputValue("");
       setOutputValue("");
-
-    }
-    catch(e){
+    } catch (e) {
       toast.error(e);
       console.error(e);
     }
@@ -130,21 +167,25 @@ export default function Home() {
 
     if (srcToken === "Eth" && destToken !== "Select a token") {
       await swapEtherToToken();
-    } 
+    }
     // else if (srcToken !== "Eth" && destToken === "Eth") {
     //   await swapTokenToEther();
     // }
-    else if(srcToken !== "Eth" && destToken !== "Eth"  && srcToken !== "Select a token" && destToken !== "Select a token"){
+    else if (
+      srcToken !== "Eth" &&
+      destToken !== "Eth" &&
+      srcToken !== "Select a token" &&
+      destToken !== "Select a token"
+    ) {
       await swapTokenforToken();
-    }
-    else {
+    } else {
       toast.error("please select token to perform swap");
     }
 
     // setIsSwapping(false);
   };
 
-  // //   get the Token Price
+   //   get the Token Price
   useEffect(() => {
     //   console.log("sorce Token-----", srcToken);
     // console.log("destination Token--------", destToken);
@@ -153,13 +194,13 @@ export default function Home() {
       // console.log("Token address--------",selectedTokenAddress);
       const checkTokenPriceUrl = "http://localhost:3000/checktokenprice";
       const requestData = { tokenAddress: selectedTokenAddress };
-  
+
       axios
         .post(checkTokenPriceUrl, requestData)
         .then((response) => {
           if (response.status === 200) {
             const data = response.data;
-            console.log("price Data========",data.tokenprice);
+            // console.log("price Data========",data.tokenprice);
             setTokenPrice(data.tokenprice);
           } else {
             console.error(
@@ -172,16 +213,18 @@ export default function Home() {
         .catch((error) => {
           console.error("Axios error:", error);
         });
+
+
     } else if (destToken === "Eth" && srcToken !== "Eth") {
       const checkTokenPriceUrl = "http://localhost:3000/checktokenprice";
       const requestData = { tokenAddress: selectedTokenAddress };
-  
+
       axios
         .post(checkTokenPriceUrl, requestData)
         .then((response) => {
           if (response.status === 200) {
             const data = response.data;
-            console.log("destination price Data========",data.tokenprice);
+            // console.log("destination price Data========",data.tokenprice);
             setTokenPrice(data.tokenprice);
           } else {
             console.error(
@@ -194,53 +237,69 @@ export default function Home() {
         .catch((error) => {
           console.error("Axios error:", error);
         });
-    } 
-    else if (srcToken !== "Eth" && destToken !== "Eth"  && srcToken !== "Select a token" && destToken !== "Select a token") {
+    } else if (
+      srcToken !== "Eth" &&
+      destToken !== "Eth" &&
+      srcToken !== "Select a token" &&
+      destToken !== "Select a token"
+    ) {
       const checkTokenPriceUrl = "http://localhost:3000/checktokenprice";
       // console.log("Src token----------",selectedSrcTokenAddress);
       // console.log("Dest token---------",selectedTokenAddress);
-        const sourceTokenRequestData = { tokenAddress: selectedSrcTokenAddress };
-        const destTokenRequestData = { tokenAddress: selectedTokenAddress };
+      const sourceTokenRequestData = { tokenAddress: selectedSrcTokenAddress };
+      const destTokenRequestData = { tokenAddress: selectedTokenAddress };
 
-        // Fetch the price of the source token
-        axios.post(checkTokenPriceUrl, sourceTokenRequestData)
-            .then((sourceResponse) => {
-                if (sourceResponse.status === 200) {
-                    const sourceData = sourceResponse.data;
-                    const sourceTokenPrice = sourceData.tokenprice;
-                    console.log("Source Token Price:", sourceTokenPrice);
-                    setSrcTokenPrice(sourceTokenPrice);
-          
-                    // Fetch the price of the destination token
-                    axios.post(checkTokenPriceUrl, destTokenRequestData)
-                        .then((destResponse) => {
-                            if (destResponse.status === 200) {
-                                const destData = destResponse.data;
-                                const destTokenPrice = destData.tokenprice;
-                                console.log("Destination Token Price:", destTokenPrice);
-                                setTokenPrice(destTokenPrice);
-                            } else {
-                                console.error("Failed to fetch destination token price:", destResponse.status, destResponse.data);
-                            }
-                        })
-                        .catch((destError) => {
-                            console.error("Axios error while fetching destination token price:", destError);
-                        });
+      // Fetch the price of the source token
+      axios
+        .post(checkTokenPriceUrl, sourceTokenRequestData)
+        .then((sourceResponse) => {
+          if (sourceResponse.status === 200) {
+            const sourceData = sourceResponse.data;
+            const sourceTokenPrice = sourceData.tokenprice;
+            // console.log("Source Token Price:", sourceTokenPrice);
+            setSrcTokenPrice(sourceTokenPrice);
 
+            // Fetch the price of the destination token
+            axios
+              .post(checkTokenPriceUrl, destTokenRequestData)
+              .then((destResponse) => {
+                if (destResponse.status === 200) {
+                  const destData = destResponse.data;
+                  const destTokenPrice = destData.tokenprice;
+                  // console.log("Destination Token Price:", destTokenPrice);
+                  setTokenPrice(destTokenPrice);
                 } else {
-                    console.error("Failed to fetch source token price:", sourceResponse.status, sourceResponse.data);
+                  console.error(
+                    "Failed to fetch destination token price:",
+                    destResponse.status,
+                    destResponse.data
+                  );
                 }
-            })
-            .catch((sourceError) => {
-                console.error("Axios error while fetching source token price:", sourceError);
-            });
-
-    }
-    else {
+              })
+              .catch((destError) => {
+                console.error(
+                  "Axios error while fetching destination token price:",
+                  destError
+                );
+              });
+          } else {
+            console.error(
+              "Failed to fetch source token price:",
+              sourceResponse.status,
+              sourceResponse.data
+            );
+          }
+        })
+        .catch((sourceError) => {
+          console.error(
+            "Axios error while fetching source token price:",
+            sourceError
+          );
+        });
+    } else {
       console.error("Failed to fetch token price");
     }
-  }, [selectedTokenAddress,selectedSrcTokenAddress,destToken, srcToken]);
-  
+  }, [selectedTokenAddress, selectedSrcTokenAddress, destToken, srcToken]);
 
   // calculate the conversion rate
   const calculateConversionRate = () => {
@@ -259,15 +318,18 @@ export default function Home() {
       return `${inputValue} ${srcToken} = ${
         (inputvalueinwei.toString() * tokenPrice) / 1e18 / 1e18
       } Eth`;
-    } 
-    else if(srcToken !== "Eth" && destToken !== "Eth"  && srcToken !== "Select a token" && destToken !== "Select a token"){
+    } else if (
+      srcToken !== "Eth" &&
+      destToken !== "Eth" &&
+      srcToken !== "Select a token" &&
+      destToken !== "Select a token"
+    ) {
       // console.log("src price in calculate-----",srctokenPrice);
       // console.log("dest price in calculaete-----",tokenPrice);
       return `${inputValue} ${srcToken} = ${
-            ((inputvalueinwei.toString() * srctokenPrice) / tokenPrice) / 1e18 
-          } ${destToken}`;
-    }
-    else {
+        (inputvalueinwei.toString() * srctokenPrice) / tokenPrice / 1e18
+      } ${destToken}`;
+    } else {
       return `1 ${srcToken} = ${tokenPrice} ${destToken}`;
     }
   };
@@ -296,27 +358,31 @@ export default function Home() {
         const convertedValue = (inputvalueinwei * tokenPrice) / 1e18 / 1e18;
         setOutputValue(convertedValue.toString());
       }
-    } 
-    else if (srcToken !== "Eth" && destToken !== "Eth"  && srcToken !== "Select a token" && destToken !== "Select a token") {
+    } else if (
+      srcToken !== "Eth" &&
+      destToken !== "Eth" &&
+      srcToken !== "Select a token" &&
+      destToken !== "Select a token"
+    ) {
       const inputAsNumber = parseFloat(inputValue);
       if (!isNaN(inputAsNumber) && inputAsNumber >= 0) {
         const inputvalueinwei = etherToWei(inputValue);
-        const convertedValue = ((inputvalueinwei * srctokenPrice) / tokenPrice) / 1e18 ;
+        const convertedValue =
+          (inputvalueinwei * srctokenPrice) / tokenPrice / 1e18;
         // console.log("value========",convertedValue);
         setOutputValue(convertedValue.toString());
-
       }
-    }
-    else {
+    } else {
       const inputAsNumber = parseFloat(inputValue);
       if (!isNaN(inputAsNumber) && inputAsNumber >= 0) {
         setOutputValue(inputValue);
       }
     }
-  }, [srcToken, destToken, inputValue, tokenPrice,srctokenPrice]);
+  }, [srcToken, destToken, inputValue, tokenPrice, srctokenPrice]);
 
   return (
     <>
+
       <div className="bg-primary dark:bg-gray-700">
         <div className="flex justify-center items-center bg-primary dark:bg-gray-700 pb-[390px]">
           <div
@@ -355,13 +421,16 @@ export default function Home() {
                   className="absolute z-10 dark:text-gray-400 rounded-lg cursor-pointer top-[88%] left-[45%] text-4xl"
                 />
               )}
-
               <button
                 onClick={handleModal1}
                 className="flex justify-center items-center gap-1 absolute text-white top-[30%] right-6  bg-[#455A64] dark:bg-gray-800 font-medium rounded-3xl hover:bg-[#757575] text-lg px-2 py-1 text-center mr-3 md:mr-0"
               >
                 {srcToken === destToken ? "Eth" : srcToken} <IoIosArrowDown />
               </button>
+              <p className="absolute top-[70%] right-3 text-white text-sm">
+              {srcToken === "Eth" && destToken !== "Eth" ? `Balance: ${Balance} ETH` : null}
+              {srcToken !== "Eth" && srcToken !== "Select a token" ? `Balance: ${srctokenBalance} ${srcToken}` : null}
+              </p>
             </div>
 
             <div className="relative">
@@ -381,6 +450,14 @@ export default function Home() {
                 {destToken === srcToken ? "Select a token" : destToken}{" "}
                 <IoIosArrowDown />
               </button>
+              <p className="absolute top-[75%] right-3 text-white text-sm">
+                {/* Balance: {Balance} */}
+                {/* {srcToken !== "Eth" && destToken === "Eth"} */}
+               {srcToken !== "Eth" && destToken === "Eth" ? `Balance: ${Balance} ETH` : null}
+
+               
+             
+              </p>
             </div>
 
             {destToken !== "Select a token" && inputValue > 0 && (
@@ -395,16 +472,12 @@ export default function Home() {
               disabled={!address}
               onClick={() => {
                 if (swapBtnText === "SWAP") {
-                  setIsSwapping(true); 
+                  setIsSwapping(true);
                   handleSwap()
-                    .then(() => {
-                      
-                    })
-                    .catch((error) => {
-                      
-                    })
+                    .then(() => {})
+                    .catch((error) => {})
                     .finally(() => {
-                      setIsSwapping(false); 
+                      setIsSwapping(false);
                     });
                 }
               }}
@@ -426,7 +499,6 @@ export default function Home() {
             setSrcToken={setSrcToken}
             modal={modal}
             onSelectToken={setSelectedTokenAddress}
-            
           />
         )}
         {modal1 && (
