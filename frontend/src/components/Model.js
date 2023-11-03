@@ -1,43 +1,45 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+// import axios from "axios";
 import { FaTimes } from "react-icons/fa";
-
-function Modal({ setModal, setDestToken, setSrcToken, modal }) {
+import {tokens} from "../utils/supportedtoken";
+function Modal({ setModal, setDestToken, setSrcToken, modal,onSelectToken }) {
   const [selectedToken, setSelectedToken] = useState("");
   const [search, setSearch] = useState("");
   const [newData, setNewData] = useState([]);
 
-  // Fetch all tokens
-  useEffect(() => {
-    const fetchAllTokens = () => {
-      const apiUrl = "http://localhost:3000/getalltokendetail";
+  // // Fetch all tokens
+  // useEffect(() => {
+  //   const fetchAllTokens = () => {
+  //     const apiUrl = "http://localhost:3000/getalltokendetail";
 
-      axios
-        .get(apiUrl)
-        .then((response) => {
-          if (response.status === 200) {
-            const data = response.data;
-            if (data.tokenDetails) {
-              setNewData(data.tokenDetails);
-            } else {
-              setNewData([]);
-            }
-          } else {
-            console.log("Request failed with status:", response.status);
-            setNewData([]);
-          }
-        })
-        .catch((error) => {
-          console.error("Error:", error);
-          setNewData([]);
-        });
-    };
+  //     axios
+  //       .get(apiUrl)
+  //       .then((response) => {
+  //         if (response.status === 200) {
+  //           const data = response.data;
+  //           if (data.tokenDetails) {
+  //             setNewData(data.tokenDetails);
+  //           } else {
+  //             setNewData([]);
+  //           }
+  //         } else {
+  //           console.log("Request failed with status:", response.status);
+  //           setNewData([]);
+  //         }
+  //       })
+  //       .catch((error) => {
+  //         console.error("Error:", error);
+  //         setNewData([]);
+  //       });
+  //   };
 
-    fetchAllTokens();
-  }, []);
+  //   fetchAllTokens();
+  // }, []);
 
-  const handleItemClick = (token) => {
+
+  const handleItemClick = (token,Address) => {
     console.log("token====", token);
+    // console.log("token====", Address);
     if (modal) {
       setSelectedToken(token);
       setDestToken(token);
@@ -45,17 +47,35 @@ function Modal({ setModal, setDestToken, setSrcToken, modal }) {
       setSelectedToken(token);
       setSrcToken(token);
     }
+    onSelectToken(Address)
     setModal(false);
   };
 
+  // useEffect(() => {
+  //   if (search === "") {
+  //     setNewData(tokens);
+  //   } else {
+  //     const filteredData = newData.filter(
+  //       (tokenInfo) =>
+  //         tokenInfo.Address === search ||
+  //         tokenInfo.name.toLowerCase().includes(search.toLowerCase())
+  //     );
+  //     if (filteredData.length > 0) {
+  //       setNewData(filteredData);
+  //     } else {
+  //       setNewData([]);
+  //     }
+  //   }
+  // }, [search, newData]);
+
   useEffect(() => {
     if (search === "") {
-      setNewData(newData);
+      setNewData(tokens);
     } else {
-      const filteredData = newData.filter(
-        (tokenInfo) =>
-          tokenInfo.Address === search ||
-          tokenInfo.name.toLowerCase().includes(search.toLowerCase())
+      const filteredData = tokens.filter(
+        (el) =>
+          el.Address === search ||
+          el.token.toLowerCase().includes(search.toLowerCase())
       );
       if (filteredData.length > 0) {
         setNewData(filteredData);
@@ -63,7 +83,7 @@ function Modal({ setModal, setDestToken, setSrcToken, modal }) {
         setNewData([]);
       }
     }
-  }, [search, newData]);
+  }, [search]);
 
   return (
     <>
@@ -96,29 +116,32 @@ function Modal({ setModal, setDestToken, setSrcToken, modal }) {
             {newData.length !== 0 &&
               newData.map((token) => (
                 <div
-                  key={token.name}
-                  onClick={() => handleItemClick(token.name)}
+                  key={token.token}
+                  onClick={() => handleItemClick(token.token,token.Address)}
                   className={`flex items-center cursor-pointer p-1 mb-3 rounded-2xl ${
-                    selectedToken === token.name
+                    selectedToken === token.token
                       ? "bg-blue-500 text-black"
                       : "bg-gray-200"
                   }`}
                 >
                   <img
-                    src="https://raw.githubusercontent.com/Uniswap/assets/master/blockchains/ethereum/assets/0x111111111117dC0aa78b770fA6A738034120C302/logo.png"
+                    src={token.img}
                     className="w-12 h-12 rounded-full mr-4"
                     alt="token-logo"
                   />
                   <div>
-                    <p className="text-lg text-black">{token.name}</p>
+                    <p className="text-lg text-black">{token.token}</p>
                     <p
                       className="text-sm text-black"
                       style={{ marginLeft: "10px" }}
                     >
                       {token.symbol}
+                      
                     </p>
+                    
                   </div>
                 </div>
+               
               ))}
           </div>
         </div>
