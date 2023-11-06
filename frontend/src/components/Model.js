@@ -102,7 +102,7 @@ function Modal({ setModal, setDestToken, setSrcToken, modal,onSelectToken }) {
               type="text"
               onChange={(e) => setSearch(e.target.value)}
               className="px-5 py-2 text-black bg-[#F9F9F9] text-lg rounded-3xl border border-gray-600 outline-none"
-              placeholder="Enter Address Of Token"
+              placeholder="Enter Name Of Token"
             />
           </div>
           {/* modal body */}

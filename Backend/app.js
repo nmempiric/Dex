@@ -24,6 +24,8 @@ const {
 const CustomTokenAbi = CustomToken.abi;
 const SwapAbi = Swap.abi;
 
+// const Private = "111ba993cca3e164e1fe7b8e22eb3a25a9578ba59fcce5919798f35b0b15517e";
+
 console.log("API KEY----------", API_URL);
 console.log("PRIVATE KEY 1---------", PRIVATE_KEY1);
 console.log("PRIVATE KEY 2-------", PRIVATE_KEY2);
